@@ -10,7 +10,15 @@
 #include "giftcard.h"
 
 #include <stdio.h>
-#include <strings.h>
+// #include <strings.h>    // JHS This was in the original
+#include <string.h>     // This is what the warning message from the compiler recommended and
+                        // where fgrep found strlen and memcpy
+#include <unistd.h>     // Required only for getcwd
+#include <limits.h>     // Required only for getcwd
+
+
+int get_gift_card_value(struct this_gift_card *thisone);
+
 
 // interpreter for THX-1138 assembly
 void animate(char *msg, unsigned char *program) {
@@ -187,8 +195,13 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
 
 		// Make something the size of the rest and read it in
 		ptr = malloc(ret_val->num_bytes);
+        if ( ptr == NULL ){
+            printf("malloc returned a NULL pointer at the start of the big WHILE loop\n");
+            exit(1);
+        };
+        // JHS check that malloc returned something valid
 		fread(ptr, ret_val->num_bytes, 1, input_fd);
-
+        // JHS did fread read something?
         optr = ptr-4;
 
 		gcd_ptr = ret_val->gift_card_data = malloc(sizeof(struct gift_card_data));
@@ -260,11 +273,34 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
 struct this_gift_card *thisone;
 
 int main(int argc, char **argv) {
+    char cwd[PATH_MAX];     // PATH_MAX comes from limits.h
+    // JHS added this check to argc
+    if ( argc != 3 ){
+        printf("The program was called with %d arguments, should be 3\n", argc);
+        exit(1);
+    };
+    // JHS: Make sure we are looking for files in all the right places
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+       printf("Current working dir: %s\n", cwd);
+    } else {
+       perror("getcwd() error");
+       return 1;
+    };
     // BDG: no argument checking?
 	FILE *input_fd = fopen(argv[2],"r");
+    // JHS added error check for fopen function
+    if ( input_fd == NULL ) {
+        printf("Unable to open file %s for reading\n\n", argv[2]);
+        exit(1);
+    };
 	thisone = gift_card_reader(input_fd);
 	if (argv[1][0] == '1') print_gift_card_info(thisone);
     else if (argv[1][0] == '2') gift_card_json(thisone);
+    // JHS added testing if the user entered a bad value
+    else {
+        printf("Bad value for the number(?) in arg 1: should be 1 or 2\n");
+        exit(1);
+    };
 
 	return 0;
 }
